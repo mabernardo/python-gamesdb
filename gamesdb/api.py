@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-import urllib2.request
+import urllib.request
 from .urlutils import urlencode_no_plus
 
 
@@ -24,13 +24,27 @@ class Game(object):
         self.rating = rating
         self.logo_url = logo_url
 
+    def get_genres_str(self):
+        """
+        @return Comma separated string with the game genres.
+        """
+        genre_str = ''
+        for genre in self.genres:
+            genre_str += genre + ', '
+
+        return genre_str.rstrip(', ')
+
+    def __repr__(self):
+        return '<{clsname}({id}, "{title}")>'.format(
+            clsname=self.__class__.__name__, id=self.id, title=self.title)
+
 
 class Platform(object):
 
     def __init__(self, id, name, alias=None, console=None, controller=None,
             graphics=None, max_controllers=None, rating=None, display=None,
             manufacturer=None, cpu=None, memory=None, sound=None, media=None,
-        developer=None, overview=None):
+            developer=None, overview=None):
         self.id = id
         self.name = name
         self.alias = alias
@@ -48,6 +62,10 @@ class Platform(object):
         self.max_controllers = max_controllers
         self.rating = rating
 
+    def __repr__(self):
+        return '<{clsname}({id}, "{name}")>'.format(
+            clsname=self.__class__.__name__, id=self.id, name=self.name)
+
 
 class APIException(Exception):
     def __init__(self, msg):
@@ -57,7 +75,7 @@ class APIException(Exception):
         return self.msg
 
 
-class gamesdbapi(object):
+class GamesDB(object):
 
     @staticmethod
     def make_call(api_url, query_args=None):
@@ -70,15 +88,15 @@ class gamesdbapi(object):
         # generally gives some indication of the error.
         if query_args is not None:
             get_params = urlencode_no_plus.urlencode_no_plus(query_args)
-            request = urllib2.request.Request(api_url + '%s' % get_params)
+            request = urllib.request.Request(api_url + '%s' % get_params)
         else:
-            request = urllib2.request.Request(api_url)
+            request = urllib.request.Request(api_url)
 
         # Added these readers to avoid some weird errors from the host.
         request.add_header('Referer', 'http://thegamesdb.net/')
         request.add_header('User-agent', 'Mozilla/5.0')
 
-        response = urllib2.request.urlopen(request)
+        response = urllib.request.urlopen(request)
         page = response.read()
 
         # Make sure the XML Parser doesn't return a ParsError.  If it does,
@@ -90,11 +108,12 @@ class gamesdbapi(object):
             raise APIException(page)
         return  xml_response
 
-    def get_platforms_list(self):
+    @staticmethod
+    def get_platforms_list():
         platforms_list = []
         GET_PLATFORMS_LIST_ENDPOINT = \
             'http://thegamesdb.net/api/GetPlatformsList.php'
-        xml_response = self.make_call(GET_PLATFORMS_LIST_ENDPOINT)
+        xml_response = GamesDB.make_call(GET_PLATFORMS_LIST_ENDPOINT)
         for element in xml_response.iter(tag="Platform"):
             for subelement in element:
                 if subelement.tag == 'id':
@@ -108,12 +127,13 @@ class gamesdbapi(object):
 
         return platforms_list
 
-    def get_platform(self, id):
+    @staticmethod
+    def get_platform(id):
         # TODO Add support for fetching platform images under the <Images>
         # element
         GET_PLATFORM_ENDPOINT = 'http://thegamesdb.net/api/GetPlatform.php?'
         query_args = {'id': id}
-        xml_response = self.make_call(GET_PLATFORM_ENDPOINT, query_args)
+        xml_response = GamesDB.make_call(GET_PLATFORM_ENDPOINT, query_args)
         # TODO These are all optional fields. There's probably a better way
         # to handle this than setting them all to None.
         platform_id = None
@@ -176,11 +196,12 @@ class gamesdbapi(object):
             media=platform_media, developer=platform_developer,
             overview=platform_overview)
 
-    def get_platform_games(self, platform_id):
+    @staticmethod
+    def get_platform_games(platform_id):
         GET_PLATFORM_GAMES_LIST_ENDPOINT = \
             'http://thegamesdb.net/api/GetPlatformGames.php?'
         query_args = {'platform': platform_id}
-        xml_response = self.make_call(
+        xml_response = GamesDB.make_call(
             GET_PLATFORM_GAMES_LIST_ENDPOINT, query_args)
         platform_games_list = []
         for element in xml_response.iter(tag="Game"):
@@ -201,7 +222,8 @@ class gamesdbapi(object):
                 release_date=platform_games_list_release_date))
         return platform_games_list
 
-    def get_game(self, id=None, name=None, platform=None):
+    @staticmethod
+    def get_game(id=None, name=None, platform=None):
         # One of these arguments must be passed
         if id is not None and name is not None:
             return None
@@ -214,7 +236,7 @@ class gamesdbapi(object):
             if platform is not None:
                 query_args['platform'] = platform
         GET_GAME_ENDPOINT = 'http://thegamesdb.net/api/GetGame.php?'
-        xml_response = self.make_call(GET_GAME_ENDPOINT, query_args)
+        xml_response = GamesDB.make_call(GET_GAME_ENDPOINT, query_args)
         games_list = []
         game_base_img_url = None
         for element in xml_response.iter(tag="baseImgUrl"):
@@ -282,7 +304,8 @@ class gamesdbapi(object):
         else:
             return games_list
 
-    def get_games_list(self, name, platform=None, genre=None):
+    @staticmethod
+    def get_games_list(name, platform=None, genre=None):
         query_args = {'name': name.decode('ascii', 'ignore')}
         if platform is not None:
             query_args['platform'] = platform
@@ -290,7 +313,7 @@ class gamesdbapi(object):
             query_args['genre'] = genre
         games_list = []
         GET_GAMES_LIST_ENDPOINT = 'http://thegamesdb.net/api/GetGamesList.php?'
-        xml_response = self.make_call(GET_GAMES_LIST_ENDPOINT, query_args)
+        xml_response = GamesDB.make_call(GET_GAMES_LIST_ENDPOINT, query_args)
         for element in xml_response.iter(tag="Game"):
             game_release_date = None
             game_platform = None

@@ -1,4 +1,4 @@
-import urllib
+import urllib.parse
 import sys
 
 # urllib will always use quote plus encoding (meaning spaces in HTTP GET parameters are converted to '+', rather than
@@ -8,13 +8,13 @@ import sys
 # urllib.quote rather than urllib.quote_plus.
 
 try:
-    unicode
+    str
 except NameError:
     def _is_unicode(x):
         return 0
 else:
     def _is_unicode(x):
-        return isinstance(x, unicode)
+        return isinstance(x, str)
 
 
 def urlencode_no_plus(query, doseq=0):
@@ -32,7 +32,7 @@ def urlencode_no_plus(query, doseq=0):
 
     if hasattr(query,"items"):
         # mapping objects
-        query = query.items()
+        query = list(query.items())
     else:
         # it's a bother at times that strings and string-like objects are
         # sequences...
@@ -46,27 +46,27 @@ def urlencode_no_plus(query, doseq=0):
             # allowed empty dicts that type of behavior probably should be
             # preserved for consistency
         except TypeError:
-            ty,va,tb = sys.exc_info()
-            raise TypeError, "not a valid non-string sequence or mapping object", tb
+            ty, va, tb = sys.exc_info()
+            raise TypeError("not a valid non-string sequence or mapping object", tb)
 
     l = []
     if not doseq:
         # preserve old behavior
         for k, v in query:
-            k = urllib.quote(str(k))
-            v = urllib.quote(str(v))
+            k = urllib.parse.quote(str(k))
+            v = urllib.parse.quote(str(v))
             l.append(k + '=' + v)
     else:
         for k, v in query:
-            k = urllib.quote(str(k))
+            k = urllib.parse.quote(str(k))
             if isinstance(v, str):
-                v = urllib.quote(v)
+                v = urllib.parse.quote(v)
                 l.append(k + '=' + v)
             elif _is_unicode(v):
                 # is there a reasonable way to convert to ASCII?
                 # encode generates a string, but "replace" or "ignore"
                 # lose information and "strict" can raise UnicodeError
-                v = urllib.quote(v.encode("ASCII","replace"))
+                v = urllib.parse.quote(v.encode("ASCII", "replace"))
                 l.append(k + '=' + v)
             else:
                 try:
@@ -74,10 +74,10 @@ def urlencode_no_plus(query, doseq=0):
                     len(v)
                 except TypeError:
                     # not a sequence
-                    v = urllib.quote(str(v))
+                    v = urllib.parse.quote(str(v))
                     l.append(k + '=' + v)
                 else:
                     # loop over the sequence
                     for elt in v:
-                        l.append(k + '=' + urllib.quote(str(elt)))
+                        l.append(k + '=' + urllib.parse.quote(str(elt)))
     return '&'.join(l)
